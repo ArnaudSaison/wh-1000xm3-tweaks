@@ -14,7 +14,10 @@ Small fixes for the Sony WH-1000XM3 that Sony's app doesn't offer, from a page i
   <img src="docs/images/announcement-quieter.gif" alt="The &quot;Bluetooth connected&quot; announcement as moving frequency bars: each grey bar is Sony's original, the orange bar in front is the same sound 12 dB quieter">
 </picture>
 
-![The page's button settings, with a diagram of what the power button will do](docs/images/ui-buttons.png)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/ui-buttons-light.gif">
+  <img src="docs/images/ui-buttons.gif" alt="The page's button settings: the hold times slide from Sony's 1.5 s and 7 s down to 1 s and 4 s, then the double press for pairing is ticked, and the diagram of what the power button does follows along">
+</picture>
 
 ## ⚠️ Before you use it
 
