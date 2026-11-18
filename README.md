@@ -9,7 +9,10 @@ Small fixes for the Sony WH-1000XM3 that Sony's app doesn't offer, from a page i
 | No quick way into pairing when already on | A double press of the power button | ✅ first version, latest one emulated only |
 | Sony's app needed just to see the headset's state | Battery, firmware, settings, without the app | ✅ |
 
-![The "Bluetooth connected" announcement as moving frequency bars: Sony's original on the left, the same sound 9 dB quieter on the right](docs/images/announcement-quieter.gif)
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/images/announcement-quieter-light.gif">
+  <img src="docs/images/announcement-quieter.gif" alt="The &quot;Bluetooth connected&quot; announcement as moving frequency bars: each grey bar is Sony's original, the orange bar in front is the same sound 12 dB quieter">
+</picture>
 
 ![The page's button settings, with a diagram of what the power button will do](docs/images/ui-buttons.png)
 
