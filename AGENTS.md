@@ -123,6 +123,7 @@ CSR8675 SPI debug port ([csr-spi-ftdi](https://github.com/lorf/csr-spi-ftdi) + B
 | `double_press.py` | build the double-press patch |
 | `xap_emulator.py`, `xap_asm.py`, `xap_inject.py` | run single functions, assemble small snippets, link them across unsigned words ([notes](docs/emulator.md)) |
 | `firmware_viz.py` | render an interactive map of `vm.app` to `work/viz/` (output contains firmware-derived data: never commit it) |
+| `sound_viz.py` | silent GIF of an announcement's frequency bars, original vs quieter build (for the README: no Sony audio in it) |
 | `change_report.py`, `inject_demo.py`, `probe_demo.py` | offline checks and demonstrations ([notes](docs/change-analysis.md)) |
 | `apk_extract_tables.py` | regenerate `xm3/tables.py` from a jadx decompilation of the app |
 | `btsnoop_mdr.py` | decode MDR and GAIA traffic from an Android HCI snoop log |
