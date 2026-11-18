@@ -1,0 +1,438 @@
+<title>Firmware Die Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sometype+Mono:wght@400;500;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap">
+<style>
+/* Layout: an instrument. The word map is the bench; controls and readouts sit beside it. */
+:root {
+  color-scheme: dark;
+  --bg: #0d1017; --panel: #151a24; --raised: #1e2531; --line: #2c3544;
+  --fg: #e6e9ef; --mut: #98a2b3;
+  --heat: #ffc45c; --free: #46d6c4; --signed: #4c5d80; --patch: #ff5fa8; --hook: #ffffff; --unused: #8f7cff;
+  --mono: "Sometype Mono", ui-monospace, Consolas, monospace;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box }
+html, body { background: var(--bg); color: var(--fg) }
+body { font: 14px/1.5 var(--display); padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 40px }
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 16px }
+h1 { font-size: clamp(24px, 3vw, 34px); line-height: 1.1; margin: 0; font-weight: 700; text-wrap: balance }
+.lede { color: var(--mut); margin: 6px 0 0; max-width: 72ch }
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start }
+@media (max-width: 980px) { .bench { grid-template-columns: minmax(0, 1fr) } }
+.mapbox { position: relative; background: #05070b; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; touch-action: none; aspect-ratio: 512 / 472; cursor: crosshair }
+.mapbox.drag { cursor: grabbing }
+canvas { display: block; width: 100%; height: 100% }
+.tip { position: absolute; pointer-events: none; background: #0a0d13ee; border: 1px solid var(--line); padding: 6px 8px; font: 12px/1.45 var(--mono); max-width: 270px; z-index: 2; white-space: normal }
+.tip b { color: var(--heat); font-weight: 500 }
+.zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; z-index: 3 }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; font: 12px var(--mono); color: var(--mut) }
+.key { display: inline-flex; gap: 6px; align-items: center }
+.key i { width: 11px; height: 11px; display: inline-block; border-radius: 1px }
+.side { display: grid; gap: 12px; min-width: 0 }
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px; min-width: 0 }
+.label { font: 500 11px var(--mono); color: var(--mut); letter-spacing: .08em; text-transform: uppercase; margin: 0 0 8px }
+button { font: 500 13px var(--mono); color: var(--fg); background: var(--raised); border: 1px solid var(--line); border-radius: 3px; padding: 6px 9px; cursor: pointer }
+button:hover { border-color: var(--mut) }
+button[aria-pressed="true"] { background: var(--heat); color: #1b1303; border-color: var(--heat) }
+:focus-visible { outline: 2px solid var(--free); outline-offset: 2px }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.note { color: var(--mut); font-size: 13px; margin: 8px 0 0 }
+input[type=range] { width: 100%; accent-color: var(--heat); margin: 8px 0 2px }
+.read { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; font: 13px/1.5 var(--mono) }
+.read dt { color: var(--mut) } .read dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums }
+.log { position: relative; list-style: none; margin: 0; padding: 0; font: 12px/1.5 var(--mono); max-height: 228px; overflow: auto; display: grid; gap: 1px }
+.log button { all: unset; display: grid; grid-template-columns: 62px 1fr; gap: 8px; cursor: pointer; padding: 1px 4px; width: 100%; box-sizing: border-box; color: var(--mut) }
+.log button:hover, .log button:focus-visible { background: var(--raised) }
+.log .past button { color: var(--fg) } .log .now button { background: var(--raised); color: var(--heat) }
+.log .output span:last-child { color: var(--patch) } .log .state span:last-child { color: var(--free) }
+.time { text-align: right; font-variant-numeric: tabular-nums }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; min-width: 0 }
+.tile strong { display: block; font: 500 24px/1.2 var(--mono); font-variant-numeric: tabular-nums }
+.tile span { color: var(--mut); font-size: 13px }
+.block { display: grid; grid-template-columns: repeat(32, 1fr); gap: 2px; margin: 8px 0 6px }
+.block i { aspect-ratio: 1; background: var(--signed); border-radius: 1px } .block i.u { background: var(--free) }
+.explain { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; color: var(--mut); font-size: 14px }
+.explain h2 { color: var(--fg); font-size: 16px; margin: 0 0 4px; font-weight: 700 }
+.explain p { margin: 0 }
+.err { color: var(--patch) }
+.finds { list-style: none; margin: 8px 0 0; padding: 0; max-height: 340px; overflow: auto; position: relative; display: grid; gap: 1px }
+.finds h3 { font: 500 11px var(--mono); color: var(--mut); letter-spacing: .08em; text-transform: uppercase; margin: 8px 0 3px }
+.finds li:first-child h3 { margin-top: 0 }
+.find { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; padding: 3px 5px; cursor: pointer; font: 13px/1.35 var(--display) }
+.find:hover, .find:focus-visible { background: var(--raised) }
+.find[aria-pressed="true"] { background: var(--raised); color: var(--heat) }
+.find i { width: 9px; height: 9px; border-radius: 50% }
+.find small { font: 11px var(--mono); color: var(--mut) }
+.lv-confirmed i, i.lv-confirmed { background: var(--free) }
+.lv-read i, i.lv-read { background: var(--heat) }
+.lv-inferred i, i.lv-inferred { background: transparent; box-shadow: inset 0 0 0 2px var(--unused) }
+.detail { margin: 8px 0 0; padding: 8px; background: var(--raised); font-size: 13px; color: var(--mut); min-height: 3em }
+.detail b { color: var(--fg); display: block; font-weight: 700 }
+.detail code { font: 12px var(--mono) }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>WH-1000XM3 firmware, one pixel per word</h1>
+    <p class="lede">Every 16-bit word of Sony's application, firmware 4.5.2, in rows of 512. Emulator runs light up the words they execute.</p>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="bench">
+    <div>
+      <div class="mapbox" id="box">
+        <canvas id="map" aria-label="Map of firmware words, coloured by type and by execution"></canvas>
+        <div class="zoom">
+          <button id="zin" aria-label="Zoom in">+</button>
+          <button id="zout" aria-label="Zoom out">&minus;</button>
+          <button id="zfit">Fit</button>
+        </div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <div class="bar" id="legend"></div>
+    </div>
+
+    <div class="side">
+      <section class="group">
+        <p class="label">Emulator run</p>
+        <div class="row" id="runs"></div>
+        <p class="note" id="runnote"></p>
+        <input type="range" id="scrub" min="0" max="1000" value="0" aria-label="Position in the run">
+        <div class="row">
+          <button id="play">Play</button>
+          <button id="restart">Restart</button>
+          <label class="row" for="speed" style="font:12px var(--mono);color:var(--mut)">Speed
+            <select id="speed" style="font:12px var(--mono);background:var(--raised);color:var(--fg);border:1px solid var(--line);padding:4px">
+              <option value="0.15">Slow</option><option value="0.5" selected>Normal</option><option value="2">Fast</option><option value="8">Very fast</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="group">
+        <p class="label">Now</p>
+        <dl class="read">
+          <dt>Time</dt><dd id="rTime"></dd>
+          <dt>Step</dt><dd id="rStep"></dd>
+          <dt>Word</dt><dd id="rWord"></dd>
+          <dt>In</dt><dd id="rFn"></dd>
+        </dl>
+      </section>
+
+      <section class="group">
+        <p class="label">Timeline</p>
+        <ul class="log" id="log"></ul>
+      </section>
+
+      <section class="group">
+        <p class="label">View</p>
+        <div class="row" id="views"></div>
+      </section>
+
+      <section class="group">
+        <p class="label" id="findTitle">Identified so far</p>
+        <div class="row" id="levels"></div>
+        <ul class="finds" id="finds"></ul>
+        <div class="detail" id="detail">Choose a finding to fly to it on the map.</div>
+      </section>
+    </div>
+  </div>
+
+  <section class="group">
+    <p class="label">One signature block: 32 words</p>
+    <div class="block" id="block"></div>
+    <p class="note" style="margin:0">A bug in the signature's hash means only the first 17 words of each block count. The other 15 can change while Sony's signature stays valid. Those 15 are the bright columns in the map.</p>
+  </section>
+
+  <section class="explain">
+    <div><h2>Why there is no padding to use</h2><p>The code segment is packed: its longest run of empty words is one word. The zero runs in the constants are mostly real table data, and code may not be able to run from there. So the patch reuses functions that nothing refers to.</p></div>
+    <div><h2>What the lights are</h2><p>Each lit word is an instruction the emulator ran, from real firmware code. Firmware calls, sound, LEDs and radio are models, and RAM doesn't come from a real boot. The double-press patch hasn't run on a headset yet.</p></div>
+    <div><h2>What this page holds</h2><p>A type for each word, addresses, names we gave to functions, and the order of execution. It holds no firmware bytes or disassembly.</p></div>
+    <div><h2>How sure each finding is</h2><p>Confirmed means checked on the headset or against Sony's signatures. Read means seen directly in the code. Inferred is our best interpretation. Most of the file still has no name.</p></div>
+  </section>
+</div>
+
+<script id="data" type="application/json">/*DATA*/null</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const $ = id => document.getElementById(id);
+const W = 512, H = Math.ceil(D.total / W);
+const hex = n => "0x" + n.toString(16).toUpperCase().padStart(5, "0");
+const kindOf = new Uint8Array(D.total);
+for (let i = 0, p = 0; i < D.map.length; i += 2) { kindOf.fill(D.map[i], p, p + D.map[i + 1]); p += D.map[i + 1]; }
+const isSigned = i => (i + D.phase) % 32 < 17;
+const K = Object.fromEntries(D.kinds.map((k, i) => [k, i]));
+const NAMES = { header: "File header", code: "Code", unused: "Code nothing refers to", constants: "Constant data", text: "Text", zeros: "Run of zeros in constants", patch: "Double-press code", hook: "Double-press hook", table: "Moved hold table and checksum fixes" };
+
+// Colours as [signed, unsigned]. The signature pattern is what gives the map its columns.
+const COLORS = {
+  header: [[70, 74, 84], [120, 126, 140]],
+  code: [[38, 50, 78], [58, 104, 142]],
+  unused: [[64, 52, 128], [143, 124, 255]],
+  constants: [[46, 40, 54], [92, 76, 92]],
+  text: [[70, 58, 40], [150, 118, 62]],
+  zeros: [[32, 34, 40], [70, 214, 196]],
+  patch: [[255, 95, 168], [255, 95, 168]],
+  hook: [[255, 255, 255], [255, 255, 255]],
+  table: [[255, 95, 168], [255, 95, 168]],
+};
+const VIEWS = {
+  regions: { name: "Regions", color: (k, s) => COLORS[D.kinds[k]][s ? 0 : 1] },
+  signature: { name: "Signature", color: (k, s) => {
+    if (k === K.patch || k === K.hook || k === K.table) return COLORS[D.kinds[k]][0];
+    return s ? [34, 44, 66] : [70, 214, 196];
+  } },
+  space: { name: "Free space", color: (k, s) => {
+    if (k === K.patch || k === K.hook || k === K.table) return COLORS[D.kinds[k]][0];
+    if (k === K.unused) return s ? [52, 44, 100] : [143, 124, 255];
+    if (k === K.zeros) return s ? [26, 28, 34] : [70, 214, 196];
+    return [20, 23, 30];
+  } },
+};
+VIEWS.identified = { name: "Identified", color: (k, s) => s ? [22, 26, 35] : [31, 37, 49] };
+let view = "regions", selected = null, levelFilter = "all";
+const LEVEL_NAMES = { confirmed: "Confirmed", read: "Read in code", inferred: "Inferred" };
+const LEVEL_COLORS = { confirmed: "#46d6c4", read: "#ffc45c", inferred: "#8f7cff" };
+const findingAt = new Int16Array(D.total).fill(-1);
+D.findings.forEach((f, n) => {
+  for (let i = f.start; i < f.start + f.len; i++) if (findingAt[i] < 0 || f.len < D.findings[findingAt[i]].len) findingAt[i] = n;
+});
+function visible(f) { return levelFilter === "all" || f.level === levelFilter; }
+function boundsOf(f) {
+  const r0 = Math.floor(f.start / W), r1 = Math.floor((f.start + f.len - 1) / W);
+  return r0 === r1 ? [f.start % W, r0, f.len, 1] : [0, r0, W, r1 - r0 + 1];
+}
+
+const base = document.createElement("canvas"); base.width = W; base.height = H;
+const baseCtx = base.getContext("2d");
+function drawBase() {
+  const img = baseCtx.createImageData(W, H), d = img.data, color = VIEWS[view].color;
+  for (let i = 0; i < D.total; i++) {
+    const c = color(kindOf[i], isSigned(i));
+    d[i * 4] = c[0]; d[i * 4 + 1] = c[1]; d[i * 4 + 2] = c[2]; d[i * 4 + 3] = 255;
+  }
+  for (let i = D.total; i < W * H; i++) { d[i * 4 + 3] = 255; }
+  baseCtx.putImageData(img, 0, 0);
+}
+
+const heat = new Float32Array(W * H), trail = new Uint8Array(W * H);
+const glow = document.createElement("canvas"); glow.width = W; glow.height = H;
+const glowCtx = glow.getContext("2d");
+const glowImg = glowCtx.createImageData(W, H);
+function drawGlow() {
+  const d = glowImg.data;
+  for (let i = 0; i < D.total; i++) {
+    const h = heat[i], t = trail[i] ? 0.22 : 0, v = Math.max(h, t), o = i * 4;
+    if (v < 0.01) { d[o + 3] = 0; continue; }
+    d[o] = 255; d[o + 1] = 150 + 105 * h; d[o + 2] = 40 + 200 * h * h; d[o + 3] = 255 * Math.min(1, v * 1.15);
+  }
+  glowCtx.putImageData(glowImg, 0, 0);
+}
+
+const canvas = $("map"), ctx = canvas.getContext("2d");
+const cam = { scale: 1, x: 0, y: 0 };
+function fit() {
+  const r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+}
+function render() {
+  const s = canvas.width / W * cam.scale, x = cam.x * canvas.width / W, y = cam.y * canvas.width / W;
+  ctx.imageSmoothingEnabled = cam.scale * canvas.width / W < 1;
+  ctx.fillStyle = "#05070b"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(base, x, y, W * s, H * s);
+  ctx.globalCompositeOperation = "lighter";
+  try { ctx.filter = "blur(" + Math.max(3, s * 2.4) + "px)"; } catch (e) {}
+  ctx.drawImage(glow, x, y, W * s, H * s);
+  try { ctx.filter = "none"; } catch (e) {}
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(glow, x, y, W * s, H * s);
+  ctx.globalCompositeOperation = "source-over";
+  if (cam.scale > 5) {
+    ctx.strokeStyle = "rgba(255,255,255,.13)"; ctx.lineWidth = 1; ctx.beginPath();
+    for (let c = (32 - D.phase % 32) % 32; c <= W; c += 32) { const px = x + c * s; ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); }
+    ctx.stroke();
+  }
+  if (view === "identified") {
+    for (const f of D.findings) {
+      if (!visible(f)) continue;
+      const [bx, by, bw, bh] = boundsOf(f), big = f === selected;
+      const px = x + bx * s, py = y + by * s, pw = Math.max(bw * s, 3), ph = Math.max(bh * s, 3), pad = big ? 3 : 1;
+      ctx.fillStyle = LEVEL_COLORS[f.level] + (big ? "66" : "99");
+      ctx.fillRect(px, py, pw, ph);
+      if (big) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(px - pad, py - pad, pw + 2 * pad, ph + 2 * pad); }
+    }
+  }
+  if (selected && view !== "identified") {
+    const [bx, by, bw, bh] = boundsOf(selected);
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(x + bx * s - 3, y + by * s - 3, Math.max(bw * s, 3) + 6, Math.max(bh * s, 3) + 6);
+  }
+  const pc = run && run.pcs[pos - 1];
+  if (pc !== undefined && pc < D.total) {
+    const px = x + (pc % W + .5) * s, py = y + (Math.floor(pc / W) + .5) * s;
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = Math.max(1, (window.devicePixelRatio || 1));
+    ctx.beginPath(); ctx.arc(px, py, Math.max(6, s * 1.5), 0, 7); ctx.stroke();
+  }
+}
+function clampCam() {
+  const maxX = 0, minX = W - W * cam.scale, h = H * cam.scale, minY = Math.min(0, H - h);
+  cam.x = Math.min(maxX, Math.max(minX, cam.x)); cam.y = Math.min(0, Math.max(minY, cam.y));
+}
+function zoomAt(factor, cx, cy) {
+  const next = Math.min(40, Math.max(1, cam.scale * factor));
+  cam.x = cx - (cx - cam.x) * next / cam.scale; cam.y = cy - (cy - cam.y) * next / cam.scale;
+  cam.scale = next; clampCam(); render();
+}
+const box = $("box");
+function mapXY(e) { const r = box.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.width * W]; }
+box.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = mapXY(e); zoomAt(e.deltaY < 0 ? 1.25 : 0.8, x, y); }, { passive: false });
+$("zin").onclick = () => zoomAt(1.6, W / 2, H / 2);
+$("zout").onclick = () => zoomAt(1 / 1.6, W / 2, H / 2);
+$("zfit").onclick = () => { cam.scale = 1; cam.x = cam.y = 0; render(); };
+let dragging = null;
+box.addEventListener("pointerdown", e => { if (e.target.closest("button")) return; dragging = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y }; box.setPointerCapture(e.pointerId); box.classList.add("drag"); });
+box.addEventListener("pointerup", () => { dragging = null; box.classList.remove("drag"); });
+box.addEventListener("pointermove", e => {
+  const r = box.getBoundingClientRect();
+  if (dragging) { cam.x = dragging.cx + (e.clientX - dragging.x) / r.width * W; cam.y = dragging.cy + (e.clientY - dragging.y) / r.width * W; clampCam(); render(); }
+  const [mx, my] = mapXY(e), wx = Math.floor((mx - cam.x) / cam.scale), wy = Math.floor((my - cam.y) / cam.scale), i = wy * W + wx;
+  const tip = $("tip");
+  if (e.target.closest("button") || wx < 0 || wx >= W || i < 0 || i >= D.total) { tip.hidden = true; return; }
+  tip.innerHTML = "<b>" + hex(i) + "</b> " + NAMES[D.kinds[kindOf[i]]] + "<br>" + (isSigned(i) ? "Signed" : "Not signed") + ", word " + ((i + D.phase) % 32) + " of its block" + (i < D.codeLimit && i >= 0x18 ? "<br>" + fnName(i) : "") + (findingAt[i] >= 0 ? "<br><b>" + esc(D.findings[findingAt[i]].name) + "</b>" : "");
+  tip.hidden = false;
+  const left = e.clientX - r.left + 14, top = e.clientY - r.top + 14;
+  tip.style.left = Math.min(left, r.width - tip.offsetWidth - 4) + "px";
+  tip.style.top = Math.min(top, r.height - tip.offsetHeight - 4) + "px";
+});
+box.addEventListener("pointerleave", () => { $("tip").hidden = true; });
+
+function fnStart(pc) { let a = 0, b = D.starts.length - 1; while (a < b) { const m = (a + b + 1) >> 1; if (D.starts[m] <= pc) a = m; else b = m - 1; } return D.starts[a]; }
+function fnName(pc) { const s = fnStart(pc); return D.functions["0x" + s.toString(16)] || "Function " + hex(s); }
+
+let run = null, pos = 0, playing = false, carry = 0;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function touch(p) { const pc = run.pcs[p]; if (pc >= D.total) return; heat[pc] = 1; trail[pc] = 1; }
+function cool(f) { for (let i = 0; i < D.total; i++) if (heat[i] > 0) { heat[i] *= f; if (heat[i] < .01) heat[i] = 0; } }
+function seek(target) {
+  target = Math.max(0, Math.min(run.pcs.length, target));
+  heat.fill(0); trail.fill(0);
+  for (let p = 0; p < target; p++) { const pc = run.pcs[p]; if (pc < D.total) trail[pc] = 1; }
+  for (let p = Math.max(0, target - 90), n = 0; p < target; p++, n++) { const pc = run.pcs[p]; if (pc < D.total) heat[pc] = Math.pow(.97, target - p); }
+  pos = target; paint();
+}
+function paint() { drawGlow(); render(); readouts(); }
+function currentMark() { let m = -1; for (let i = 0; i < run.marks.length; i++) if (run.marks[i][0] <= pos) m = i; return m; }
+function ms(t) { return t >= 10000 ? (t / 1000).toFixed(1) + " s" : t + " ms"; }
+function readouts() {
+  const m = currentMark(), pc = run.pcs[Math.max(0, pos - 1)];
+  $("rTime").textContent = m >= 0 ? ms(run.marks[m][1]) : "0 ms";
+  $("rStep").textContent = pos.toLocaleString("en") + " of " + run.pcs.length.toLocaleString("en");
+  $("rWord").textContent = pos ? hex(pc) : "-";
+  $("rFn").textContent = pos ? fnName(pc) : "-";
+  if (document.activeElement !== $("scrub")) $("scrub").value = run.pcs.length ? Math.round(pos / run.pcs.length * 1000) : 0;
+  const rows = $("log").children;
+  for (let i = 0; i < rows.length; i++) rows[i].className = run.marks[i][2] + (i === m ? " now" : i < m ? " past" : "");
+  if (playing && rows[m]) { const l = $("log"), t = rows[m]; if (t.offsetTop < l.scrollTop || t.offsetTop > l.scrollTop + l.clientHeight - 24) l.scrollTop = t.offsetTop - l.clientHeight / 2; }
+}
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function selectRun(id) {
+  run = D.runs.find(r => r.id === id);
+  for (const b of $("runs").children) b.setAttribute("aria-pressed", b.dataset.id === id);
+  $("runnote").innerHTML = "<b>" + esc(run.image) + " firmware.</b> " + esc(run.note) + (run.error ? ' <span class="err">The run stopped at code the emulator can\'t model.</span>' : "");
+  $("log").innerHTML = run.marks.map((m, i) => '<li><button data-i="' + i + '"><span class="time">' + ms(m[1]) + "</span><span>" + esc(m[3]) + "</span></button></li>").join("");
+  $("log").scrollTop = 0;
+  seek(0);
+}
+$("log").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; setPlaying(false); seek(run.marks[+b.dataset.i][0] + 1); });
+function setPlaying(on) { playing = on; $("play").textContent = on ? "Pause" : "Play"; if (on) requestAnimationFrame(tick); }
+let last = 0;
+function tick(now) {
+  if (!playing) return;
+  const dt = Math.min(50, now - last || 16); last = now;
+  carry += dt * +$("speed").value;
+  const n = Math.floor(carry); carry -= n;
+  for (let k = 0; k < n && pos < run.pcs.length; k++) touch(pos++);
+  cool(Math.pow(.992, dt));
+  paint();
+  if (pos >= run.pcs.length) {
+    if ([...heat].some(v => v > .02)) { requestAnimationFrame(tick); return; }
+    setPlaying(false); return;
+  }
+  requestAnimationFrame(tick);
+}
+$("play").onclick = () => { if (pos >= run.pcs.length) seek(0); last = 0; setPlaying(!playing); };
+$("restart").onclick = () => { seek(0); last = 0; setPlaying(true); };
+$("scrub").oninput = e => { setPlaying(false); seek(Math.round(e.target.value / 1000 * run.pcs.length)); };
+
+for (const r of D.runs) { const b = document.createElement("button"); b.textContent = r.name; b.dataset.id = r.id; b.onclick = () => { selectRun(r.id); last = 0; setPlaying(!reduced); }; $("runs").append(b); }
+for (const [id, v] of Object.entries(VIEWS)) { const b = document.createElement("button"); b.textContent = v.name; b.dataset.id = id; b.setAttribute("aria-pressed", id === view); b.onclick = () => setView(id); $("views").append(b); }
+
+function renderFinds() {
+  const areas = [...new Set(D.findings.map(f => f.area))];
+  $("finds").innerHTML = areas.map(a => {
+    const rows = D.findings.map((f, n) => [f, n]).filter(([f]) => f.area === a && visible(f));
+    if (!rows.length) return "";
+    return "<li><h3>" + esc(a) + "</h3></li>" + rows.map(([f, n]) => '<li><button class="find lv-' + f.level + '" data-n="' + n + '" aria-pressed="' + (f === selected) + '"><i></i><span>' + esc(f.name) + "</span><small>" + hex(f.start) + "</small></button></li>").join("");
+  }).join("");
+}
+function selectFinding(f) {
+  selected = f;
+  renderFinds();
+  $("detail").innerHTML = "<b>" + esc(f.name) + "</b>" + esc(f.note) + '<br><code>' + hex(f.start) + ", " + f.len.toLocaleString("en") + " word" + (f.len === 1 ? "" : "s") + ", " + LEVEL_NAMES[f.level].toLowerCase() + "</code>";
+  if (view !== "identified") setView("identified");
+  const bh = boundsOf(f)[3], mid = f.start + f.len / 2, span = Math.min(f.len, W);
+  const target = Math.min(24, Math.max(1, Math.min(W / (span + 40), H / (bh + 40))));
+  flyTo(target, W / 2 - (mid % W) * target, H / 2 - (mid / W) * target);
+}
+let flight = 0;
+function flyTo(scale, tx, ty) {
+  const from = { ...cam }, id = ++flight, began = performance.now(), length = reduced ? 0 : 420;
+  (function step(now) {
+    if (id !== flight) return;
+    const t = length ? Math.min(1, (now - began) / length) : 1, e = t * t * (3 - 2 * t);
+    cam.scale = from.scale + (scale - from.scale) * e; cam.x = from.x + (tx - from.x) * e; cam.y = from.y + (ty - from.y) * e;
+    clampCam(); render();
+    if (t < 1) requestAnimationFrame(step);
+  })(began);
+}
+function setView(id) {
+  view = id;
+  for (const c of $("views").children) c.setAttribute("aria-pressed", c.dataset.id === id);
+  drawBase(); legend(); render();
+}
+$("finds").addEventListener("click", e => { const b = e.target.closest("button"); if (b) selectFinding(D.findings[+b.dataset.n]); });
+const levelCounts = l => D.findings.filter(f => f.level === l).length;
+for (const l of ["all", "confirmed", "read", "inferred"]) {
+  const b = document.createElement("button");
+  b.textContent = (l === "all" ? "All " + D.findings.length : LEVEL_NAMES[l] + " " + levelCounts(l));
+  b.setAttribute("aria-pressed", l === "all");
+  b.onclick = () => { levelFilter = l; for (const c of $("levels").children) c.setAttribute("aria-pressed", c === b); renderFinds(); render(); };
+  $("levels").append(b);
+}
+function legend() {
+  const rgb = c => "rgb(" + c.join(",") + ")";
+  const items = view === "identified"
+    ? Object.keys(LEVEL_NAMES).map(l => [LEVEL_NAMES[l], LEVEL_COLORS[l].match(/\w\w/g).map(h => parseInt(h, 16))])
+    : view === "signature"
+    ? [["Signed", [34, 44, 66]], ["Not signed", [70, 214, 196]], ["Patch", COLORS.patch[0]]]
+    : view === "space"
+      ? [["Code nothing refers to, not signed", [143, 124, 255]], ["Zeros in constants, not signed", [70, 214, 196]], ["Patch", COLORS.patch[0]]]
+      : [["Code", COLORS.code[1]], ["Unreferenced code", COLORS.unused[1]], ["Constants", COLORS.constants[1]], ["Text", COLORS.text[1]], ["Zero runs", COLORS.zeros[1]], ["Patch", COLORS.patch[0]], ["Hook", COLORS.hook[0]]];
+  $("legend").innerHTML = items.map(([n, c]) => '<span class="key"><i style="background:' + rgb(c) + '"></i>' + esc(n) + "</span>").join("") + '<span class="key"><i style="background:#ffc45c"></i>Executing</span><span>Scroll to zoom, drag to pan</span>';
+}
+const pct = (a, b) => (a * 100 / b).toFixed(1) + "%";
+$("tiles").innerHTML = [
+  [D.total.toLocaleString("en"), "words in vm.app"],
+  [pct(D.unsigned, D.total), "not covered by the signature"],
+  [D.unusedFunctions, "functions nothing refers to, " + D.unusedWords.toLocaleString("en") + " words"],
+  [D.patchWords, "words changed for the double press"],
+].map(([a, b]) => "<div class=tile><strong>" + a + "</strong><span>" + esc(String(b)) + "</span></div>").join("");
+$("block").innerHTML = Array.from({ length: 32 }, (_, i) => "<i" + (i >= 17 ? ' class="u"' : "") + "></i>").join("");
+
+new ResizeObserver(() => { fit(); render(); }).observe(canvas);
+fit(); drawBase(); legend(); renderFinds(); selectRun("double");
+seek(Math.min(D.runs[0].pcs.length, Math.floor(D.runs[0].pcs.length * .62)));
+if (!reduced) { seek(0); last = 0; setPlaying(true); }
+</script>

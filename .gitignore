@@ -1,0 +1,18 @@
+firmware/
+*.bin
+__pycache__/
+.venv/
+.claude/
+
+# Sony material and local working output: never commit
+*.apk
+*.apkm
+*.xapk
+*.ipa
+*.dex
+app.xapk.part_*
+decompiled/
+jadx-out/
+app-findings-raw/
+data/
+work/

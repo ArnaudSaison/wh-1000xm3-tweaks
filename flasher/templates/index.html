@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XM3 Workbench</title>
+<style>
+:root{color-scheme:dark;--bg:#0e1014;--card:#171a20;--raised:#20242c;--line:#2b303a;--fg:#eceef2;--mut:#98a0ae;
+  --accent:#e8a33d;--accent-fg:#1c1303;--ok:#46c37b;--warn:#e8a33d;--bad:#f0625d;--mono:ui-monospace,Consolas,Menlo,monospace}
+@media (prefers-color-scheme:light){:root{color-scheme:light;--bg:#f3f2ef;--card:#fff;--raised:#f0efeb;--line:#dddbd5;
+  --fg:#1d1f23;--mut:#666c76;--accent:#a8650c;--accent-fg:#fff;--ok:#1f8a4d;--warn:#a8650c;--bad:#c9352f}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+h1{font-size:16px;margin:0;font-weight:650}
+.grow{flex:1}
+main{max-width:1060px;margin:0 auto;padding:20px 16px 60px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.step>div{min-width:0}
+@media (max-width:520px){.tile.battery{grid-column:1/-1}.step{grid-template-columns:minmax(0,1fr)}.sliders{grid-template-columns:minmax(0,1fr)}}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+h2{font-size:15px;margin:0 0 4px}
+.sub{color:var(--mut);font-size:13px;margin:0 0 14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mut);display:inline-block;margin-right:7px}
+.dot.on{background:var(--ok)}
+input[type=text],input[type=number]{background:var(--raised);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:13px var(--mono)}
+select{background:var(--raised);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:7px 9px;font:inherit;max-width:100%}
+button{background:var(--raised);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font:inherit;font-weight:550;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--mut)}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.danger{background:var(--bad);color:#fff;border-color:var(--bad)}
+button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{background:var(--raised);border-radius:8px;padding:10px 12px;min-width:0}
+.tile small{display:block;color:var(--mut);font-size:12px}
+.tile b{display:block;font-weight:600;overflow-wrap:anywhere}
+.tile.battery{grid-column:span 2;min-width:0}
+.big{font-size:28px;font-weight:650;line-height:1.2;font-variant-numeric:tabular-nums}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.meter i.low{background:var(--bad)}
+.steps{display:grid;gap:12px}
+.step{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start}
+.num{width:28px;height:28px;border-radius:50%;background:var(--raised);display:grid;place-items:center;font-weight:650;font-size:13px}
+.step h3{font-size:14px;margin:3px 0 2px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px 20px;margin-top:8px}
+.sliders label{font-size:13px;color:var(--mut);display:flex;justify-content:space-between}
+.sliders output{color:var(--fg);font-variant-numeric:tabular-nums;font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.checks{list-style:none;margin:8px 0;padding:0;display:grid;gap:3px;font-size:14px}
+.checks .y::before{content:"✓ ";color:var(--ok);font-weight:700}
+.checks .n::before{content:"✕ ";color:var(--bad);font-weight:700}
+.checks small{color:var(--mut);margin-left:6px;font-family:var(--mono)}
+.progress{height:10px;border-radius:5px;background:var(--raised);overflow:hidden;margin:8px 0 4px}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.banner{padding:9px 12px;border-radius:6px;background:var(--raised);font-size:14px;margin-top:8px;border-left:3px solid var(--mut)}
+.banner.ok{border-color:var(--ok)}.banner.bad{border-color:var(--bad)}.banner.warn{border-color:var(--warn)}
+.hidden{display:none!important}
+#log{font:12.5px/1.45 var(--mono);background:var(--raised);border-radius:6px;padding:10px;height:190px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.l-ok{color:var(--ok)}.l-error{color:var(--bad)}.l-warn{color:var(--warn)}
+.note{font-size:13px;color:var(--mut)}
+audio{height:32px;max-width:100%}
+.ab{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:13px;color:var(--mut);margin-top:8px}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+table{width:100%;border-collapse:collapse;font:12px var(--mono);margin-top:8px;display:block;overflow:auto;max-height:340px}
+td{padding:3px 8px;border-top:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+kbd{font:12px var(--mono);background:var(--raised);padding:1px 5px;border-radius:4px}
+.tgroup{margin-top:14px;font-size:13px;font-weight:650}
+.tctl small{display:block;color:var(--mut);font-size:12px;line-height:1.35;margin-top:2px}
+.tctl .stock{white-space:nowrap}
+.rules .warn::before{content:"! ";color:var(--warn);font-weight:700}
+.rules .error::before{content:"✕ ";color:var(--bad);font-weight:700}
+.rules .info::before{content:"i ";color:var(--mut);font-weight:700}
+.rules .fine::before{content:"✓ ";color:var(--ok);font-weight:700}
+.fig{font-size:14px;margin:16px 0 6px}
+.diagram{overflow-x:auto;background:var(--raised);border-radius:8px;padding:8px}
+.diagram svg{display:block;width:100%;min-width:640px;height:auto}
+.diagram .node rect{fill:var(--card);stroke:var(--mut)}
+.diagram .node.pair rect{stroke:var(--accent);stroke-width:2}
+.diagram .node text{text-anchor:middle;fill:var(--fg);font-size:15px;font-weight:650}
+.diagram .node text.small{fill:var(--mut);font-size:11.5px;font-weight:400}
+.diagram .edge{fill:none;stroke:var(--mut);stroke-width:1.5;marker-end:url(#arrow)}
+.diagram .edge.key{stroke:var(--accent);stroke-width:2}
+.diagram .opt{display:none}
+.diagram.double .opt{display:inline}
+.feature{display:flex;gap:10px;align-items:flex-start;margin:14px 0 4px}
+.feature input{margin-top:4px;width:18px;height:18px;flex:none}
+.feature small{display:block;color:var(--mut)}
+.diagram .head{fill:var(--mut)}
+.diagram .lab{fill:var(--fg);font-size:13px}
+.diagram .v{fill:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+.lanes{display:grid;gap:8px;margin:10px 0;font-size:12px}
+.lane b{display:block;font-weight:600;margin-bottom:2px}
+.bar{display:flex;height:30px;border-radius:5px;overflow:hidden;gap:1px}
+.bar span{display:flex;align-items:center;justify-content:center;min-width:0;padding:0 3px;background:var(--raised);overflow:hidden;white-space:nowrap;line-height:1.1;text-align:center}
+.bar .boot{color:var(--mut)}.bar .act{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.locked{margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>XM3 Workbench</h1>
+  <span id="connText" class="note"><span class="dot" id="dot"></span>Not connected</span>
+  <span class="grow"></span>
+  <input type="text" id="address" placeholder="AA:BB:CC:DD:EE:FF" aria-label="Bluetooth address" size="19">
+  <button id="connectBtn" class="primary">Connect</button>
+</header>
+<main>
+  <section>
+    <h2>Headset</h2>
+    <p class="sub" id="statusHint">Turn the headset on, unplug it from USB, and connect. Reading status changes nothing on the headset.</p>
+    <div class="tiles" id="tiles"></div>
+    <div class="row">
+      <button id="refreshBtn" disabled>Refresh</button>
+      <button id="gaiaBtn" disabled title="Opens the update channel and closes it without sending any data">Test update channel</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Quieter announcements</h2>
+    <p class="sub">Replaces only the announcements. The headset's code is not in this package, and Sony's original can be uploaded the same way to undo it.</p>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div>
+        <h3>Get Sony's original package</h3>
+        <div class="row">
+          <select id="language" aria-label="Language"></select>
+          <button id="downloadBtn">Download from Sony</button>
+          <span class="note" id="sourceNote"></span>
+        </div>
+      </div></div>
+      <div class="step"><div class="num">2</div><div>
+        <h3>Choose the volume and build</h3>
+        <div class="sliders">
+          <div><label for="voice">Voice announcements <output id="voiceOut"></output></label><input type="range" id="voice" min="0" max="20" step="1" value="6"></div>
+          <div><label for="beep">Beeps and tones <output id="beepOut"></output></label><input type="range" id="beep" min="0" max="20" step="1" value="6"></div>
+        </div>
+        <div class="row"><button id="buildBtn" disabled>Build quiet package</button></div>
+      </div></div>
+      <div class="step"><div class="num">3</div><div>
+        <h3>Listen before you upload</h3>
+        <div class="row"><select id="file" aria-label="Announcement" disabled></select></div>
+        <div class="ab hidden" id="ab">
+          <span>Original</span><audio id="audioOrig" controls preload="none"></audio>
+          <span>Quiet</span><audio id="audioQuiet" controls preload="none"></audio>
+        </div>
+        <p class="note">Plays through this PC, so it shows the difference rather than how loud the headset will be.</p>
+      </div></div>
+      <div class="step"><div class="num">4</div><div>
+        <h3>Upload</h3>
+        <div class="row">
+          <select id="package" aria-label="Package to upload"></select>
+          <button id="simBtn" disabled>Simulate upload</button>
+        </div>
+        <ul class="checks" id="checks"></ul>
+        <div class="banner warn">Keep the headset on and nearby, and do not close this page. A false low-battery warning afterwards cleared last time after a power cycle or charge. Recovery from a failed upload may require opening the headset.</div>
+        <div class="row">
+          <label for="confirm" class="note">Type <kbd>{{ confirm_word }}</kbd> to confirm</label>
+          <input type="text" id="confirm" size="9" autocomplete="off">
+          <button id="uploadBtn" class="danger" disabled>Upload to headset</button>
+        </div>
+        <div id="jobBox" class="hidden">
+          <div class="progress"><i id="jobBar"></i></div>
+          <div class="note" id="jobText" aria-live="polite"></div>
+          <div class="banner" id="jobResult"></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Firmware: buttons</h2>
+    <p class="sub">Changes how long buttons are held before they act, and can add a double press for pairing. This replaces the headset's code, using your region's Sony file.</p>
+    <div class="banner bad">Hold times of 4 s, and of 1 s with 3 s, have run on a real headset, and so has a first version of the double press. The current double press, with its wait before the pairing sound, has not. An upload takes about 16 minutes. If the headset accepts a file and it doesn't boot, recovery needs SPI access, which isn't set up yet. The headset could be left unusable.</div>
+    <div id="timingControls"></div>
+    <div id="featureControls"></div>
+    <ul class="checks rules" id="timingRules" aria-live="polite"></ul>
+    <h3 class="fig">What the power button does with these values</h3>
+    <div class="diagram" id="powerDiagram">
+      <svg viewBox="0 0 900 460" role="img" aria-label="Power button states: off, on, powering off and pairing, with the hold times that move between them. Still holding while powering off leads to pairing. With the double press option, a double click from on also leads to pairing.">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="head"/></marker></defs>
+        <path class="edge key" d="M105 220V34H810V220"/>
+        <path class="edge" d="M190 235L380 135"/>
+        <path class="edge" d="M730 235L520 135"/>
+        <path class="edge key" d="M425 150V380"/>
+        <path class="edge key" d="M520 425H810V280"/>
+        <path class="edge key opt" d="M520 105H780V220"/>
+        <path class="edge key" d="M730 280L525 390"/>
+        <path class="edge" d="M380 415L105 280"/>
+        <path class="edge" d="M430 90C410 50 490 50 470 90"/>
+        <g class="node"><rect x="20" y="220" width="170" height="60" rx="8"/><text x="105" y="246">Off</text><text class="small" x="105" y="266">released early: stays off</text></g>
+        <g class="node"><rect x="380" y="90" width="140" height="60" rx="8"/><text x="450" y="125">On</text></g>
+        <g class="node"><rect x="380" y="380" width="140" height="60" rx="8"/><text x="450" y="406">Powering off</text><text class="small" x="450" y="426">announcement plays</text></g>
+        <g class="node pair"><rect x="730" y="220" width="160" height="60" rx="8"/><text x="810" y="246">Pairing</text><text class="small" x="810" y="266">ends after 5 min</text></g>
+        <text class="lab" x="455" y="24" text-anchor="middle">From off, held to <tspan class="v" data-v="long_ms"></tspan></text>
+        <text class="lab" x="450" y="48" text-anchor="middle">Click, under <tspan class="v" data-v="short_ms"></tspan>: battery</text>
+        <text class="lab" x="325" y="150" text-anchor="end">Held to <tspan class="v" data-v="short_ms"></tspan>, then released</text>
+        <text class="lab" x="595" y="150">Phone connects, or 5 min</text>
+        <text class="lab" x="415" y="265" text-anchor="end">Held to <tspan class="v" data-v="short_ms"></tspan></text>
+        <text class="lab" x="535" y="447">Still held at <tspan class="v" data-v="long_ms"></tspan>: back on, in pairing</text>
+        <text class="lab opt" x="530" y="97">Double click, within <tspan class="w"></tspan>: after 3 s</text>
+        <text class="lab" x="640" y="375">Held to <tspan class="v" data-v="short_ms"></tspan></text>
+        <text class="lab" x="60" y="375">Released before <tspan class="v" data-v="long_ms"></tspan></text>
+      </svg>
+    </div>
+    <div class="lanes" id="lanes"></div>
+    <p class="note">From off, the firmware can't time anything until it has booted, about 2 s on the one headset measured (inferred). The press and release paths are read from the code and observed on the headset. The moves out of pairing are read or inferred, and "released early" is inferred. Holding on through power-off was seen to bring the headset back on, and the code then starts pairing, which hasn't been checked on the headset. The double click is only drawn, and only built, with the option ticked. A first version works on the headset. The current one, which waits three seconds so the pairing announcement isn't cut off, is emulated only: see <code>docs/double-press.md</code>. Your phone's reaction is untested.</p>
+    <details class="locked"><summary>Values that can't be changed here</summary><ul class="note" id="timingLocked"></ul></details>
+    <p class="note">This file restores Sony's original sounds. Upload your quiet package again afterwards.</p>
+    <div class="row"><button id="fwBuildBtn" disabled>Build firmware</button></div>
+    <ul class="checks" id="fwRehearsal"></ul>
+    <div class="row">
+      <select id="fwImage" aria-label="Firmware file"></select>
+      <button id="fwSimBtn" disabled>Simulate upload</button>
+    </div>
+    <ul class="checks" id="fwChecks"></ul>
+    <div class="row">
+      <label for="fwConfirm" class="note">Type <kbd>{{ firmware_word }}</kbd> to confirm</label>
+      <input type="text" id="fwConfirm" size="9" autocomplete="off">
+      <button id="fwUploadBtn" class="danger" disabled>Flash firmware to headset</button>
+    </div>
+    <div id="fwJobBox" class="hidden">
+      <div class="progress"><i id="fwJobBar"></i></div>
+      <div class="note" id="fwJobText" aria-live="polite"></div>
+      <div class="banner" id="fwJobResult"></div>
+    </div>
+  </section>
+
+  <section>
+    <details>
+      <summary>Raw protocol survey</summary>
+      <p class="note">Sends every read-only query for this model and shows the raw replies.</p>
+      <button id="surveyBtn" disabled>Run survey</button>
+      <table id="survey"></table>
+    </details>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <div id="log" role="log"></div>
+  </section>
+</main>
+<script>
+const TOKEN = {{ token|tojson }}, WORD = {{ confirm_word|tojson }}, FW_WORD = {{ firmware_word|tojson }};
+const $ = id => document.getElementById(id);
+const LANGS = {1:"English",2:"French",3:"German",4:"Spanish",5:"Italian",6:"Portuguese",7:"Dutch",8:"Swedish",9:"Finnish",10:"Russian",11:"Japanese",13:"Brazilian Portuguese",15:"Korean",16:"Turkish",240:"Chinese"};
+let state = {}, busy = false, filesFor = null, addressTouched = false;
+
+function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML}
+async function api(path, body){
+  const r = await fetch(path, {method:"POST", headers:{"X-Token":TOKEN,"Content-Type":"application/json"}, body:JSON.stringify(body||{})});
+  const data = await r.json().catch(()=>({error:"Unexpected server reply"}));
+  if(!r.ok) throw new Error(data.error||r.statusText);
+  return data;
+}
+async function act(btn, fn){
+  busy = true; if(btn) btn.disabled = true;
+  try { await fn(); } catch(e){ /* errors are recorded in the log by the server */ showLocal(e.message); }
+  busy = false; await poll();
+}
+let localMsg = null;
+function showLocal(m){ localMsg = {t:new Date().toTimeString().slice(0,8), kind:"error", msg:m}; }
+
+for(const [v,n] of Object.entries(LANGS)) $("language").add(new Option(n,v));
+
+function db(s){ return s==0 ? "unchanged" : "−"+(s*1.5).toFixed(1)+" dB"; }
+function sliders(){ $("voiceOut").textContent=db($("voice").value); $("beepOut").textContent=db($("beep").value); }
+$("voice").oninput=$("beep").oninput=sliders; sliders();
+
+
+function tile(label,value){return `<div class="tile"><small>${esc(label)}</small><b>${esc(value)}</b></div>`}
+function renderTiles(s){
+  if(!s||!s.model){$("tiles").innerHTML="";return}
+  const lvl=s.battery.level, low=lvl<=s.battery_threshold;
+  $("tiles").innerHTML=`<div class="tile battery"><small>Battery${s.battery.charging==="CHARGING"?" (charging)":""}</small>
+    <span class="big">${lvl}%</span><div class="meter"><i class="${low?"low":""}" style="width:${lvl}%"></i></div>
+    <small>${low?`Uploads need more than ${s.battery_threshold}%`:"Enough for an upload"}</small></div>`+
+    tile("Model",s.model)+tile("Firmware",s.firmware)+tile("Sound mode",s.nc)+tile("Equalizer",s.eq==="OFF"?"Off":s.eq.replace(/_/g," "))+
+    tile("Codec",s.codec)+tile("Custom button",s.custom_button)+tile("Touch panel",s.touch_panel)+
+    tile("Voice guidance",`${s.voice_on?"On":"Off"}, ${s.language}`)+tile("Region",s.region)+tile("Firmware service",s.service);
+}
+
+function renderPackages(){
+  const pk=state.packages||[], sel=$("package"), cur=sel.value;
+  const sig=pk.map(p=>p.id).join();
+  if(sel.dataset.sig!==sig){
+    sel.innerHTML=""; sel.dataset.sig=sig;
+    if(!pk.length) sel.add(new Option("No packages yet",""));
+    for(const p of pk) sel.add(new Option(p.label||p.id,p.id));
+    if(pk.some(p=>p.id===cur)) sel.value=cur;
+    sel.dispatchEvent(new Event("change"));
+  }
+  const src=pk.find(p=>p.kind==="sony"&&p.source===sourceService());
+  $("sourceNote").textContent=src?`Ready, verified. Version ${src.version}.`:"";
+  $("buildBtn").disabled=!src||busy;
+}
+function sourceService(){ return "VGIDCSR00"+Number($("language").value).toString(16).toUpperCase().padStart(2,"0"); }
+function chosen(){ return (state.packages||[]).find(p=>p.id===$("package").value); }
+
+async function loadFiles(){
+  const p=chosen(), base=p&&(p.kind==="sony"?p.id:p.source);
+  $("file").disabled=!p;
+  if(!p){$("ab").classList.add("hidden");return}
+  if(filesFor!==p.id){
+    const r=await fetch(`/api/files/${p.id}`).then(r=>r.json());
+    const prev=$("file").value; $("file").innerHTML="";
+    for(const f of r.files||[]) $("file").add(new Option(f.replace(/^.*\//,"").replace(/^0+/,"").replace(".mp3",""),f));
+    if(prev&&(r.files||[]).includes(prev)) $("file").value=prev;
+    filesFor=p.id;
+  }
+  const f=$("file").value; if(!f) return;
+  $("audioOrig").src=`/api/audio/${base}/${f}`;
+  $("audioQuiet").src=`/api/audio/${p.id}/${f}`;
+  $("ab").classList.remove("hidden");
+}
+$("package").onchange=()=>{filesFor=null;loadFiles();checks()};
+$("file").onchange=loadFiles;
+$("language").onchange=renderPackages;
+
+let checksOk=false;
+async function checks(){
+  const id=$("package").value;
+  const r=await fetch(`/api/preflight?package=${encodeURIComponent(id)}`).then(r=>r.json());
+  $("checks").innerHTML=r.checks.map(c=>`<li class="${c.ok?"y":"n"}">${esc(c.label)}<small>${esc(c.detail)}</small></li>`).join("");
+  checksOk=r.checks.every(c=>c.ok);
+  updateUpload();
+}
+function updateUpload(){
+  const active=state.job&&state.job.active;
+  $("uploadBtn").disabled=!checksOk||active||$("confirm").value!==WORD;
+  $("simBtn").disabled=!$("package").value||active;
+}
+$("confirm").oninput=updateUpload;
+
+function paintJob(prefix, j, show){
+  const box=$(prefix+"JobBox".replace(/^J/,prefix?"J":"j"));
+  if(!j.kind||!show){box.classList.add("hidden");return}
+  box.classList.remove("hidden");
+  const name=s=>prefix+(prefix?s:s[0].toLowerCase()+s.slice(1));
+  $(name("JobBar")).style.width=(j.percent||0)+"%";
+  $(name("JobText")).textContent=`${j.simulated?"Simulation: ":""}${j.phase}${j.active?` (${j.percent}%)`:""}`;
+  const res=$(name("JobResult"));
+  res.className="banner "+(j.result?(j.result.ok?"ok":"bad"):"warn");
+  res.textContent=j.result?j.result.message:(j.simulated?"Nothing is being sent to your headset.":"Do not power off the headset or close this page.");
+}
+function renderJob(){
+  const j=state.job||{};
+  paintJob("",j,!j.firmware); paintJob("fw",j,!!j.firmware);
+}
+function renderFirmware(){
+  const list=state.firmware||[], sel=$("fwImage"), cur=sel.value, sig=list.map(f=>f.id).join();
+  if(sel.dataset.sig!==sig){
+    sel.innerHTML=""; sel.dataset.sig=sig;
+    if(!list.length) sel.add(new Option("Nothing built yet",""));
+    for(const f of list) sel.add(new Option(`${f.label} (${f.sha1.slice(0,8)})`,f.id));
+    if(list.some(f=>f.id===cur)) sel.value=cur;
+  }
+  $("fwBuildBtn").disabled=!state.connected||state.job.active||busy||!timingsOk;
+}
+let timingsOk=false, controls=[], features=[], checkTimer=null, checkSeq=0;
+function doublePress(){ const b=$("f_double_press"); return !!(b&&b.checked); }
+function buildRequest(){ return {timings:timings(),double_press:doublePress()}; }
+const secs=ms=>(ms/1000).toFixed(ms%100?2:1).replace(/\.0$/,"")+" s";
+function timings(){ return Object.fromEntries(controls.map(c=>[c.id,Number($("t_"+c.id).value)])); }
+function paintTimings(){
+  const t=timings();
+  for(const c of controls) $("o_"+c.id).textContent=secs(t[c.id]);
+  document.querySelectorAll(".v").forEach(e=>{e.textContent=secs(t[e.dataset.v])});
+  $("powerDiagram").classList.toggle("double",doublePress());
+  const a=t.short_ms,b=t.long_ms,tail=1500;
+  const bar=(lead,parts)=>`<div class="bar">${lead?`<span class="boot" style="flex:${lead}">boot</span>`:""}${parts.map(([d,txt,cls])=>`<span class="${cls||""}" style="flex:${d}" title="${esc(txt)}">${esc(txt)}</span>`).join("")}</div>`;
+  $("lanes").innerHTML=`<div class="lane"><b>Holding from on, release in…</b>${bar(0,[[a,"battery"],[b-a,"powers off"],[tail,"back on, pairing","act"]])}</div>
+    <div class="lane"><b>Holding from off, release in…</b>${bar(2000,[[a,"stays off"],[b-a,"turns on"],[tail,"pairing","act"]])}</div>`;
+  clearTimeout(checkTimer); checkTimer=setTimeout(checkTimings,150);
+}
+async function checkTimings(){
+  const seq=++checkSeq;
+  timingsOk=false;
+  try{
+    const r=await api("/api/firmware/check",buildRequest());
+    if(seq!==checkSeq) return;
+    timingsOk=!r.rows.some(x=>x.level==="error");
+    $("timingRules").innerHTML=(r.rows.length?r.rows.map(x=>`<li class="${x.level}">${esc(x.text)}</li>`).join(""):`<li class="fine">No problems found with these values.</li>`);
+  }catch(e){ if(seq===checkSeq) $("timingRules").innerHTML=`<li class="error">${esc(e.message)}</li>`; }
+  if(state.job) renderFirmware();
+}
+async function loadTimings(){
+  const r=await fetch("/api/firmware/timings").then(r=>r.json());
+  controls=r.controls; features=r.features||[];
+  let html="",group=null;
+  for(const c of controls){
+    if(c.group!==group){ if(group!==null) html+="</div>"; group=c.group; html+=`<div class="tgroup">${esc(group)}</div><div class="sliders">`; }
+    const start=c.id==="short_ms"?1000:c.id==="long_ms"?4000:c.stock;
+    html+=`<div class="tctl"><label for="t_${c.id}">${esc(c.label)} <output id="o_${c.id}"></output></label>
+      <input type="range" id="t_${c.id}" min="${c.min}" max="${c.max}" step="${c.step}" value="${start}">
+      <small>${esc(c.help)} <span class="stock">Sony's: ${secs(c.stock)}.</span></small></div>`;
+  }
+  $("timingControls").innerHTML=html+"</div>";
+  $("timingLocked").innerHTML=r.locked.map(l=>`<li><b>${esc(l.what)}:</b> ${esc(l.why)}</li>`).join("");
+  $("featureControls").innerHTML=features.map(f=>`<label class="feature" for="f_${f.id}"><input type="checkbox" id="f_${f.id}"><span><b>${esc(f.label)}</b><small>${esc(f.help)}</small></span></label>`).join("");
+  document.querySelectorAll(".diagram .w").forEach(e=>{e.textContent=secs(r.double_press_window_ms||500)});
+  for(const f of features) $("f_"+f.id).onchange=paintTimings;
+  for(const c of controls) $("t_"+c.id).oninput=paintTimings;
+  paintTimings();
+}
+loadTimings();
+let fwChecksOk=false;
+async function firmwareChecks(){
+  const r=await fetch(`/api/firmware/preflight?id=${encodeURIComponent($("fwImage").value)}`).then(r=>r.json());
+  $("fwChecks").innerHTML=r.checks.map(c=>`<li class="${c.ok?"y":"n"}">${esc(c.label)}<small>${esc(c.detail)}</small></li>`).join("");
+  fwChecksOk=r.checks.every(c=>c.ok);
+  updateFirmwareUpload();
+}
+function updateFirmwareUpload(){
+  const active=state.job&&state.job.active;
+  $("fwUploadBtn").disabled=!fwChecksOk||active||$("fwConfirm").value!==FW_WORD;
+  $("fwSimBtn").disabled=!$("fwImage").value||active;
+}
+$("fwConfirm").oninput=updateFirmwareUpload;
+$("fwImage").onchange=firmwareChecks;
+function renderLog(){
+  const el=$("log"), atEnd=el.scrollHeight-el.scrollTop-el.clientHeight<30;
+  const rows=[...(state.log||[])]; if(localMsg) rows.push(localMsg);
+  const html=rows.map(l=>`<span class="l-${l.kind}">${l.t} ${esc(l.msg)}</span>`).join("\n");
+  if(el.dataset.h!==html){el.innerHTML=html;el.dataset.h=html;if(atEnd)el.scrollTop=el.scrollHeight}
+}
+async function poll(){
+  try{ state=await fetch("/api/state").then(r=>r.json()); }catch(e){ return; }
+  const c=state.connected, active=state.job.active;
+  $("dot").className="dot"+(c?" on":"");
+  $("connText").lastChild.textContent=c?`Connected to ${state.address}`:"Not connected";
+  $("connectBtn").textContent=c?"Disconnect":"Connect";
+  $("connectBtn").disabled=active;
+  if(!addressTouched&&state.address&&document.activeElement!==$("address")) $("address").value=state.address;
+  $("refreshBtn").disabled=!c||active; $("gaiaBtn").disabled=!c||active; $("surveyBtn").disabled=!c||active;
+  $("statusHint").classList.toggle("hidden",!!c);
+  renderTiles(state.status); renderPackages(); renderFirmware(); renderJob(); renderLog(); checks(); firmwareChecks();
+  if(c&&state.status.language_code!==undefined&&!$("language").dataset.auto){$("language").value=state.status.language_code;$("language").dataset.auto="1"}
+}
+$("address").oninput=()=>addressTouched=true;
+$("connectBtn").onclick=e=>act(e.target,async()=>{
+  if(state.connected) await api("/api/disconnect");
+  else await api("/api/connect",{address:$("address").value});
+});
+$("refreshBtn").onclick=e=>act(e.target,()=>api("/api/refresh"));
+$("gaiaBtn").onclick=e=>act(e.target,()=>api("/api/test-gaia"));
+$("downloadBtn").onclick=e=>act(e.target,async()=>{ await api("/api/download",{language:Number($("language").value)}); e.target.disabled=false; });
+$("buildBtn").onclick=e=>act(e.target,async()=>{
+  const src=(state.packages||[]).find(p=>p.kind==="sony"&&p.source===sourceService());
+  const r=await api("/api/build",{source:src.id,voice_steps:Number($("voice").value),beep_steps:Number($("beep").value)});
+  await poll(); $("package").value=r.id; $("package").dispatchEvent(new Event("change"));
+});
+$("simBtn").onclick=e=>act(e.target,()=>api("/api/simulate",{package:$("package").value}));
+$("uploadBtn").onclick=e=>act(e.target,async()=>{
+  await api("/api/upload",{package:$("package").value,confirm:$("confirm").value});
+  $("confirm").value="";
+});
+$("fwBuildBtn").onclick=e=>act(e.target,async()=>{
+  const r=await api("/api/firmware/build",buildRequest());
+  $("fwRehearsal").innerHTML=r.rehearsal.map(c=>`<li class="${c.ok?"y":"n"}">Emulator, ${esc(c.label)}<small>${esc(c.detail)}</small></li>`).join("");
+  await poll(); $("fwImage").value=r.id; await firmwareChecks();
+});
+$("fwSimBtn").onclick=e=>act(e.target,()=>api("/api/firmware/simulate",{id:$("fwImage").value}));
+$("fwUploadBtn").onclick=e=>act(e.target,async()=>{
+  await api("/api/firmware/upload",{id:$("fwImage").value,confirm:$("fwConfirm").value});
+  $("fwConfirm").value="";
+});
+$("surveyBtn").onclick=e=>act(e.target,async()=>{
+  const r=await api("/api/survey");
+  $("survey").innerHTML=r.rows.map(x=>`<tr><td>${esc(x.name)}<br>${esc(x.sent)}</td><td>${x.replies.map(y=>esc(y.name)+"<br>"+esc(y.data)).join("<br>")||"no reply"}</td></tr>`).join("");
+});
+fetch("/api/paired").then(r=>r.json()).then(d=>{ if(d.devices&&d.devices[0]&&!$("address").value) $("address").value=d.devices[0].address; });
+poll(); setInterval(()=>{ if(!busy) poll(); },1500);
+</script>
+</body>
+</html>
